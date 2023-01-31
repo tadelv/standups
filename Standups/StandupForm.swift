@@ -1,3 +1,4 @@
+import Combine
 import Dependencies
 import SwiftUI
 import SwiftUINavigation
@@ -6,11 +7,20 @@ class StandupFormModel: ObservableObject {
   @Published var focus: Field?
   @Published var standup: Standup
 
+  private var containerConnection: AnyCancellable?
+
   @Dependency(\.uuid) var uuid
 
   enum Field: Hashable {
     case attendee(Attendee.ID)
     case title
+  }
+
+  convenience init(container: ValueTypeContainer<Standup>) {
+    self.init(standup: container.value)
+    containerConnection = self.$standup.sink { [weak container] in
+      container?.value = $0
+    }
   }
 
   init(

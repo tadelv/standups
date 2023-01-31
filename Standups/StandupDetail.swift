@@ -5,6 +5,34 @@ import SwiftUI
 import SwiftUINavigation
 import XCTestDynamicOverlay
 
+class ValueTypeContainer<Value> {
+  var value: Value
+
+  internal init(value: Value) {
+    self.value = value
+  }
+}
+
+extension DependencyValues {
+  var createEditStandupView: @Sendable (Binding<ValueTypeContainer<Standup>>) -> AnyView {
+    get { self[CreateEditStandupViewKey.self] }
+    set { self[CreateEditStandupViewKey.self] = newValue }
+  }
+
+  private enum CreateEditStandupViewKey: DependencyKey {
+    typealias Value =  @Sendable (Binding<ValueTypeContainer<Standup>>) -> AnyView
+
+    static var liveValue: @Sendable (Binding<ValueTypeContainer<Standup>>) -> AnyView =
+    { $container in
+      AnyView (
+        StandupFormView(
+          model: StandupFormModel(container: container)
+        )
+      )
+    }
+  }
+}
+
 @MainActor
 class StandupDetailModel: ObservableObject {
   @Published var destination: Destination? {
@@ -23,7 +51,7 @@ class StandupDetailModel: ObservableObject {
 
   enum Destination {
     case alert(AlertState<AlertAction>)
-    case edit(StandupFormModel)
+    case edit(ValueTypeContainer<Standup>)
     case meeting(Meeting)
     case record(RecordMeetingModel)
   }
@@ -77,9 +105,7 @@ class StandupDetailModel: ObservableObject {
 
   func editButtonTapped() {
     self.destination = .edit(
-      withDependencies(from: self) {
-        StandupFormModel(standup: self.standup)
-      }
+      ValueTypeContainer(value: self.standup)
     )
   }
 
@@ -88,10 +114,10 @@ class StandupDetailModel: ObservableObject {
   }
 
   func doneEditingButtonTapped() {
-    guard case let .edit(model) = self.destination
+    guard case let .edit(container) = self.destination
     else { return }
 
-    self.standup = model.standup
+    self.standup = container.value
     self.destination = nil
   }
 
@@ -144,6 +170,8 @@ class StandupDetailModel: ObservableObject {
 struct StandupDetailView: View {
   @Environment(\.dismiss) var dismiss
   @ObservedObject var model: StandupDetailModel
+
+  @Dependency(\.createEditStandupView) var createEditStandupView
 
   var body: some View {
     List {
@@ -238,9 +266,9 @@ struct StandupDetailView: View {
     .sheet(
       unwrapping: self.$model.destination,
       case: /StandupDetailModel.Destination.edit
-    ) { $editModel in
+    ) { $container in
       NavigationStack {
-        StandupFormView(model: editModel)
+        createEditStandupView($container)
           .navigationTitle(self.model.standup.title)
           .toolbar {
             ToolbarItem(placement: .cancellationAction) {
