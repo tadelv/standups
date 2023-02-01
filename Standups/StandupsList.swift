@@ -21,7 +21,7 @@ final class StandupsListModel: ObservableObject {
   enum Destination {
     case add(ValueTypeContainer<Standup>)
     case alert(AlertState<AlertAction>)
-    case detail(StandupDetailModel)
+    case detail(ValueTypeContainer<(standup: Standup, onDelete: (() -> Void)?)>)
   }
   enum AlertAction {
     case confirmLoadMockData
@@ -81,25 +81,26 @@ final class StandupsListModel: ObservableObject {
 
   func standupTapped(standup: Standup) {
     self.destination = .detail(
-      withDependencies(from: self) {
-        StandupDetailModel(standup: standup)
-      }
+      .init(value: (standup: standup, onDelete: nil))
     )
   }
 
   private func bind() {
     switch self.destination {
     case let .detail(standupDetailModel):
-      standupDetailModel.onConfirmDeletion = { [weak self, id = standupDetailModel.standup.id] in
+      standupDetailModel.value.onDelete = { [weak self, id = standupDetailModel.value.standup.id] in
         withAnimation {
           self?.standups.remove(id: id)
           self?.destination = nil
         }
       }
 
-      self.destinationCancellable = standupDetailModel.$standup
-        .sink { [weak self] standup in
-          self?.standups[id: standup.id] = standup
+      self.destinationCancellable = standupDetailModel.$value
+        .removeDuplicates(by: { lhs, rhs in
+          lhs.standup == rhs.standup
+        })
+        .sink { [weak self] value in
+          self?.standups[id: value.standup.id] = value.standup
         }
 
     case .add, .alert, .none:
@@ -142,10 +143,11 @@ extension AlertState where Action == StandupsListModel.AlertAction {
   }
 }
 
-struct StandupsList<AddStandupView: View>: View {
+struct StandupsList<AddStandupView: View, StandupDetailView: View>: View {
   @ObservedObject var model: StandupsListModel
 
   let createAddStandupView: (Binding<ValueTypeContainer<Standup>>) -> AddStandupView
+  let createStandupDetailView: (Binding<ValueTypeContainer<(standup: Standup, onDelete: (() -> Void)?)>>) -> StandupDetailView
 
   var body: some View {
     NavigationStack {
@@ -194,7 +196,9 @@ struct StandupsList<AddStandupView: View>: View {
         unwrapping: self.$model.destination,
         case: /StandupsListModel.Destination.detail
       ) { $detailModel in
-        StandupDetailView(model: detailModel)
+        withDependencies(from: self.model) {
+          createStandupDetailView($detailModel)
+        }
       }
       .alert(
         unwrapping: self.$model.destination,
@@ -268,6 +272,8 @@ struct StandupsList_Previews: PreviewProvider {
         }
       ) {
         StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      } createStandupDetailView: {
+        StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
       }
     }
     .previewDisplayName("Mocking initial standups")
@@ -289,6 +295,8 @@ struct StandupsList_Previews: PreviewProvider {
         }
       ) {
         StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      } createStandupDetailView: {
+        StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
       }
     }
     .previewDisplayName("Load data failure")
@@ -313,17 +321,21 @@ struct StandupsList_Previews: PreviewProvider {
         } operation: {
           StandupsListModel(
             destination: .detail(
-              StandupDetailModel(
-                destination: .record(
-                  RecordMeetingModel(standup: .mock)
-                ),
-                standup: .mock
-              )
+//              StandupDetailModel(
+//                destination: .record(
+//                  RecordMeetingModel(standup: .mock)
+//                ),
+//                standup: .mock
+//              )
+              // TODO: deep link
+              .init(value: (standup: .mock, onDelete: nil))
             )
           )
         }
       ) {
         StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      } createStandupDetailView: {
+        StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
       }
     }
     .previewDisplayName("Deep link record flow")
@@ -355,6 +367,8 @@ struct StandupsList_Previews: PreviewProvider {
         }
       ) {
         StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      } createStandupDetailView: {
+        StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
       }
     }
     .previewDisplayName("Deep link add flow")

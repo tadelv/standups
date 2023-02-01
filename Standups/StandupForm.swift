@@ -1,4 +1,3 @@
-import Combine
 import Dependencies
 import SwiftUI
 import SwiftUINavigation
@@ -6,8 +5,6 @@ import SwiftUINavigation
 class StandupFormModel: ObservableObject {
   @Published var focus: Field?
   @Published var standup: Standup
-
-  private var containerConnection: AnyCancellable?
 
   @Dependency(\.uuid) var uuid
 

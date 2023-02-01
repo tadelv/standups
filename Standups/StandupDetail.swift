@@ -1,4 +1,5 @@
 import Clocks
+import Combine
 import CustomDump
 import Dependencies
 import SwiftUI
@@ -49,6 +50,8 @@ class StandupDetailModel: ObservableObject {
 
   var onConfirmDeletion: () -> Void = unimplemented("StandupDetailModel.onConfirmDeletion")
 
+  var containerConnection: AnyCancellable?
+
   enum Destination {
     case alert(AlertState<AlertAction>)
     case edit(ValueTypeContainer<Standup>)
@@ -59,6 +62,15 @@ class StandupDetailModel: ObservableObject {
     case confirmDeletion
     case continueWithoutRecording
     case openSettings
+  }
+
+  convenience init(container: ValueTypeContainer<(standup: Standup, onDelete: (() -> Void)?)>) {
+    self.init(standup: container.value.standup)
+    self.containerConnection = self.$standup.sink {
+      container.value.standup = $0
+    }
+    guard let onDelete = container.value.onDelete else { return }
+    onConfirmDeletion = onDelete
   }
 
   init(

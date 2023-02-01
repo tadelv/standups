@@ -14,6 +14,8 @@ struct StandupsApp: App {
       } else {
         StandupsList(model: StandupsListModel()) {
           StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+        } createStandupDetailView: {
+          StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
         }
       }
     }
@@ -27,6 +29,8 @@ struct UITestingView: View {
     } operation: {
       StandupsList(model: StandupsListModel()) {
         StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      } createStandupDetailView: {
+        StandupDetailView(model: StandupDetailModel(container: $0.wrappedValue))
       }
     }
   }
