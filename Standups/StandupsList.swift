@@ -87,15 +87,15 @@ final class StandupsListModel: ObservableObject {
 
   private func bind() {
     switch self.destination {
-    case let .detail(standupDetailModel):
-      standupDetailModel.value.onDelete = { [weak self, id = standupDetailModel.value.standup.id] in
+    case let .detail(container):
+      container.value.onDelete = { [weak self, id = container.value.standup.id] in
         withAnimation {
           self?.standups.remove(id: id)
           self?.destination = nil
         }
       }
 
-      self.destinationCancellable = standupDetailModel.$value
+      self.destinationCancellable = container.$value
         .removeDuplicates(by: { lhs, rhs in
           lhs.standup == rhs.standup
         })
@@ -195,9 +195,9 @@ struct StandupsList<AddStandupView: View, StandupDetailView: View>: View {
       .navigationDestination(
         unwrapping: self.$model.destination,
         case: /StandupsListModel.Destination.detail
-      ) { $detailModel in
+      ) { $container in
         withDependencies(from: self.model) {
-          createStandupDetailView($detailModel)
+          createStandupDetailView($container)
         }
       }
       .alert(
