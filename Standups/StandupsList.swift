@@ -19,7 +19,7 @@ final class StandupsListModel: ObservableObject {
   @Dependency(\.uuid) var uuid
 
   enum Destination {
-    case add(StandupFormModel)
+    case add(ValueTypeContainer<Standup>)
     case alert(AlertState<AlertAction>)
     case detail(StandupDetailModel)
   }
@@ -55,9 +55,7 @@ final class StandupsListModel: ObservableObject {
 
   func addStandupButtonTapped() {
     self.destination = .add(
-      withDependencies(from: self) {
-        StandupFormModel(standup: Standup(id: Standup.ID(self.uuid())))
-      }
+      .init(value: Standup(id: Standup.ID(self.uuid())))
     )
   }
 
@@ -68,9 +66,9 @@ final class StandupsListModel: ObservableObject {
   func confirmAddStandupButtonTapped() {
     defer { self.destination = nil }
 
-    guard case let .add(standupFormModel) = self.destination
+    guard case let .add(container) = self.destination
     else { return }
-    var standup = standupFormModel.standup
+    var standup = container.value
 
     standup.attendees.removeAll { attendee in
       attendee.name.allSatisfy(\.isWhitespace)
@@ -144,8 +142,10 @@ extension AlertState where Action == StandupsListModel.AlertAction {
   }
 }
 
-struct StandupsList: View {
+struct StandupsList<AddStandupView: View>: View {
   @ObservedObject var model: StandupsListModel
+
+  let createAddStandupView: (Binding<ValueTypeContainer<Standup>>) -> AddStandupView
 
   var body: some View {
     NavigationStack {
@@ -172,7 +172,9 @@ struct StandupsList: View {
         case: /StandupsListModel.Destination.add
       ) { $model in
         NavigationStack {
-          StandupFormView(model: model)
+          withDependencies(from: self.model) {
+            createAddStandupView($model)
+          }
             .navigationTitle("New standup")
             .toolbar {
               ToolbarItem(placement: .cancellationAction) {
@@ -264,7 +266,9 @@ struct StandupsList_Previews: PreviewProvider {
         } operation: {
           StandupsListModel()
         }
-      )
+      ) {
+        StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      }
     }
     .previewDisplayName("Mocking initial standups")
 
@@ -283,7 +287,9 @@ struct StandupsList_Previews: PreviewProvider {
         } operation: {
           StandupsListModel()
         }
-      )
+      ) {
+        StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      }
     }
     .previewDisplayName("Load data failure")
 
@@ -316,7 +322,9 @@ struct StandupsList_Previews: PreviewProvider {
             )
           )
         }
-      )
+      ) {
+        StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      }
     }
     .previewDisplayName("Deep link record flow")
 
@@ -336,14 +344,18 @@ struct StandupsList_Previews: PreviewProvider {
           let _ = standup.attendees.append(lastAttendee)
           return StandupsListModel(
             destination: .add(
-              StandupFormModel(
-                focus: .attendee(lastAttendee.id),
-                standup: standup
-              )
+//              StandupFormModel(
+//                focus: .attendee(lastAttendee.id),
+//                standup: standup
+//              )
+              // TODO: re-add focus
+              .init(value: standup) // losing focus value for now
             )
           )
         }
-      )
+      ) {
+        StandupFormView(model: StandupFormModel(container: $0.wrappedValue))
+      }
     }
     .previewDisplayName("Deep link add flow")
   }

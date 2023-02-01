@@ -18,9 +18,7 @@ class StandupFormModel: ObservableObject {
 
   convenience init(container: ValueTypeContainer<Standup>) {
     self.init(standup: container.value)
-    containerConnection = self.$standup.sink { [weak container] in
-      container?.value = $0
-    }
+    self.$standup.assign(to: &container.$value)
   }
 
   init(

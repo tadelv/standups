@@ -5,8 +5,8 @@ import SwiftUI
 import SwiftUINavigation
 import XCTestDynamicOverlay
 
-class ValueTypeContainer<Value> {
-  var value: Value
+class ValueTypeContainer<Value>: ObservableObject {
+  @Published var value: Value
 
   internal init(value: Value) {
     self.value = value
